@@ -3,43 +3,64 @@ import torch
 import sys
 import os
 
+# Ensure correct usage
+if len(sys.argv) != 3:
+    print("❌ Usage: python subtitleX.py input.mp4 output.srt")
+    sys.exit(1)
+
 input_path = sys.argv[1]
 output_path = sys.argv[2]
-
 device = "cpu"
 
+print("📂 Input Path:", input_path)
+print("📂 Output Path:", output_path)
+
 try:
-    print("🔧 Loading model...")
+    print("🔧 Step 1: Loading WhisperX ASR model...")
     model = whisperx.load_model("large-v2", device)
 
-    print("📥 Loading audio...")
+    print("🎧 Step 2: Loading audio...")
     audio = whisperx.load_audio(input_path)
 
-    print("🧠 Transcribing...")
+    print("🧠 Step 3: Transcribing with WhisperX...")
     result = model.transcribe(audio)
 
-    if "segments" not in result or not result["segments"]:
-        print("❌ No segments found — skipping subtitle generation.")
+    if not result.get("segments"):
+        print("❌ No segments returned from transcription.")
         sys.exit(1)
 
-    print("📐 Aligning...")
+    print("📐 Step 4: Loading alignment model...")
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
-    result_aligned = whisperx.align(result["segments"], model_a, metadata, audio, device)
 
-    print("💾 Writing SRT...")
-    with open(output_path, "w", encoding="utf-8") as f:
-        for i, segment in enumerate(result_aligned["segments"], 1):
-            start = segment["start"]
-            end = segment["end"]
-            text = segment["text"].strip()
+    print("🧩 Step 5: Performing alignment...")
+    try:
+        aligned_result = whisperx.align(result["segments"], model_a, metadata, audio, device)
+    except Exception as e:
+        print("❌ WhisperX alignment failed:", e)
+        sys.exit(1)
 
-            start_time = f"{int(start//3600):02}:{int((start%3600)//60):02}:{int(start%60):02},{int((start%1)*1000):03}"
-            end_time = f"{int(end//3600):02}:{int((end%3600)//60):02}:{int(end%60):02},{int((end%1)*1000):03}"
+    if not aligned_result.get("segments"):
+        print("❌ Alignment succeeded but no segments returned.")
+        sys.exit(1)
 
-            f.write(f"{i}\n{start_time} --> {end_time}\n{text}\n\n")
+    print("💾 Step 6: Writing SRT file...")
+    try:
+        with open(output_path, "w", encoding="utf-8") as srt:
+            for i, seg in enumerate(aligned_result["segments"], 1):
+                start = seg["start"]
+                end = seg["end"]
+                text = seg["text"].strip()
 
-    print("✅ Subtitle generation complete.")
+                start_time = f"{int(start//3600):02}:{int((start%3600)//60):02}:{int(start%60):02},{int((start%1)*1000):03}"
+                end_time = f"{int(end//3600):02}:{int((end%3600)//60):02}:{int(end%60):02},{int((end%1)*1000):03}"
+
+                srt.write(f"{i}\n{start_time} --> {end_time}\n{text}\n\n")
+
+        print(f"✅ Subtitle file successfully written to: {output_path}")
+    except Exception as e:
+        print("❌ Failed to write subtitle file:", e)
+        sys.exit(1)
 
 except Exception as e:
-    print("❌ WhisperX crashed:", e)
+    print("❌ Fatal WhisperX error:", e)
     sys.exit(1)
