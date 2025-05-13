@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 python-multipart
-whisperx==3.3.4
+whisperx==3.2.0
 torch==2.1.0
 torchaudio==2.1.0
 ffmpeg-python
