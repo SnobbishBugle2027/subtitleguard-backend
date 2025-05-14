@@ -1,14 +1,21 @@
-print("🔧 Starting subtitleX.py...")
+print("🚀 subtitleX.py has started...")
 
-print("📦 Importing whisperx...")
-import whisperx
-print("📦 whisperx imported.")
-
-import torch
 import sys
 import os
+import traceback
 
-print("📁 Parsing command-line arguments...")
+def exit_with_error(stage, error):
+    print(f"❌ ERROR during {stage}:\n{error}")
+    traceback.print_exc()
+    sys.exit(1)
+
+try:
+    print("📦 Importing whisperx...")
+    import whisperx
+    print("✅ whisperx imported successfully.")
+except Exception as e:
+    exit_with_error("import whisperx", e)
+
 if len(sys.argv) != 3:
     print("❌ Usage: python subtitleX.py input.mp4 output.srt")
     sys.exit(1)
@@ -16,41 +23,43 @@ if len(sys.argv) != 3:
 input_path = sys.argv[1]
 output_path = sys.argv[2]
 
-print("📂 Input path:", input_path)
-print("📂 Output path:", output_path)
-
-device = "cpu"
+try:
+    print("🧠 Loading WhisperX model...")
+    model = whisperx.load_model("large-v2", device="cpu")
+    print("✅ Model loaded successfully.")
+except Exception as e:
+    exit_with_error("load_model", e)
 
 try:
-    print("🔧 Step 1: Loading WhisperX model (large-v2)...")
-    model = whisperx.load_model("large-v2", device)
-    print("✅ WhisperX model loaded.")
-
-    print("🎧 Step 2: Loading audio...")
+    print("🎧 Loading audio from:", input_path)
     audio = whisperx.load_audio(input_path)
     print("✅ Audio loaded.")
+except Exception as e:
+    exit_with_error("load_audio", e)
 
-    print("🧠 Step 3: Transcribing...")
+try:
+    print("💬 Transcribing audio...")
     result = model.transcribe(audio)
     print("✅ Transcription complete.")
+except Exception as e:
+    exit_with_error("transcribe", e)
 
-    if not result.get("segments"):
-        print("❌ No transcription segments found.")
-        sys.exit(1)
-
-    print("📐 Step 4: Loading alignment model...")
-    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
+try:
+    print("📐 Loading alignment model...")
+    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device="cpu")
     print("✅ Alignment model loaded.")
+except Exception as e:
+    exit_with_error("load_align_model", e)
 
-    print("🧩 Step 5: Aligning segments...")
-    aligned_result = whisperx.align(result["segments"], model_a, metadata, audio, device)
+try:
+    print("🔄 Aligning segments...")
+    aligned_result = whisperx.align(result["segments"], model_a, metadata, audio, device="cpu")
     print("✅ Alignment complete.")
+except Exception as e:
+    exit_with_error("align", e)
 
-    if not aligned_result.get("segments"):
-        print("❌ No aligned segments found after alignment.")
-        sys.exit(1)
-
-    print("💾 Step 6: Writing SRT file...")
+try:
+    print("💾 Writing to SRT file:", output_path)
     with open(output_path, "w", encoding="utf-8") as srt:
         for i, seg in enumerate(aligned_result["segments"], 1):
             start = seg["start"]
@@ -61,9 +70,6 @@ try:
             end_time = f"{int(end//3600):02}:{int((end%3600)//60):02}:{int(end%60):02},{int((end%1)*1000):03}"
 
             srt.write(f"{i}\n{start_time} --> {end_time}\n{text}\n\n")
-
-    print(f"✅ Subtitle file successfully written to: {output_path}")
-
+    print("✅ Subtitle file written successfully.")
 except Exception as e:
-    print("❌ Exception caught in subtitleX.py:", str(e))
-    sys.exit(1)
+    exit_with_error("write_srt", e)
