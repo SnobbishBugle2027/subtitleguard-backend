@@ -45,23 +45,9 @@ except Exception as e:
     exit_with_error("transcribe", e)
 
 try:
-    print("📐 Loading alignment model...")
-    model_a, metadata = whisperx.load_align_model(language_code=result["language"], device="cpu")
-    print("✅ Alignment model loaded.")
-except Exception as e:
-    exit_with_error("load_align_model", e)
-
-try:
-    print("🔄 Aligning segments...")
-    aligned_result = whisperx.align(result["segments"], model_a, metadata, audio, device="cpu")
-    print("✅ Alignment complete.")
-except Exception as e:
-    exit_with_error("align", e)
-
-try:
     print("💾 Writing to SRT file:", output_path)
     with open(output_path, "w", encoding="utf-8") as srt:
-        for i, seg in enumerate(aligned_result["segments"], 1):
+        for i, seg in enumerate(result["segments"], 1):
             start = seg["start"]
             end = seg["end"]
             text = seg["text"].strip()
