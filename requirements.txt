@@ -4,5 +4,5 @@ python-multipart==0.0.9
 whisperx==3.2.0
 torch==2.1.0
 torchaudio==2.1.0
-ffmpeg-python==0.2.0
 numpy<2
+ffmpeg-python==0.2.0
